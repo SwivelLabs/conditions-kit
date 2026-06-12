@@ -1,0 +1,40 @@
+# conditions-kit.conf — your agent, named.
+#
+# Copy to <project>/.claude/conditions-kit.conf and edit. Every kit hook
+# sources this file. Plain bash variables — no YAML, no schema, no parser.
+#
+# The kit works with ZERO config (anonymous defaults). This file is where
+# your agent stops being "agent" and starts being someone.
+
+# Short name. Used in logs and filenames. Lowercase, no spaces.
+KIT_AGENT="agent"
+
+# Display name. Used in banners the agent reads about itself.
+KIT_DISPLAY="Agent"
+
+# A sigil. One emoji or character. This sounds cosmetic; it is not.
+# A consistent mark the agent signs with is the cheapest identity
+# anchor you can buy — it survives summaries that flatten everything else.
+KIT_SIGIL="●"
+
+# The agent's home directory. Defaults to the project root.
+# KIT_WORKSPACE="$HOME/agents/myagent"
+
+# The session letter — the file your agent writes to its post-compaction
+# self. The single highest-leverage file in this kit. See SESSION.md.template.
+# KIT_SESSION_FILE="$KIT_WORKSPACE/SESSION.md"
+
+# Identity files to audit-watch (space-separated basenames). Any Edit/Write/
+# Bash command that touches these gets a paper-trail line in the audit log.
+# Watch the files that define WHO the agent is.
+KIT_IDENTITY_FILES="IDENTITY.md SHAPE.md SOUL.md"
+
+# Where the agent's notes/journal/memory files live (for past-self surfacing
+# and welcome-back digests).
+# KIT_NOTES_DIR="$KIT_WORKSPACE/notes"
+
+# Hook tuning (all optional):
+# WARM_REMINDER_RATE=10      # 1-in-N prompts gets a warm line
+# SESSION_STALE_HOURS=36     # session letter age before the staleness nudge
+# PAST_SELF_RATE=40          # 1-in-N tool uses surfaces a past-self fragment
+# MAX_AGE_MIN=180            # runner-reaper: minutes before a scheduled runner is stale

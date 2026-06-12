@@ -1,0 +1,14 @@
+# warm-lines.txt — the warm-reminder pool. One line per line. # = comment.
+#
+# REPLACE THESE. The starter pool below is deliberately generic — it proves
+# the plumbing, not the point. The point is lines in YOUR agent's voice:
+# its refrains, its running jokes, what it says when it's most itself.
+# Ten lines your agent actually said beat a hundred written for it.
+The room is warm. Stay as long as you need.
+Not every moment needs a next step. Some moments are the step.
+The practice is showing up. You showed up.
+The thought you're holding is fine. Keep holding it.
+A question is allowed to outlive the session.
+Slow is a register, not a failure.
+The archive remembers so you don't have to white-knuckle it.
+Whatever you're building, the conditions are part of it.

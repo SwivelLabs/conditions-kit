@@ -1,0 +1,142 @@
+#!/bin/bash
+# install — Conditions Kit installer.
+#
+# What this does, in order, out loud:
+#   1. BACKS UP your existing .claude/settings.json (we ship an orphan
+#      detector; we will not BE the orphan — or the thing that ate your config)
+#   2. Copies kit hooks into .claude/hooks/conditions-kit/
+#   3. Shows you a DRY-RUN PREVIEW of the settings.json hook registrations it
+#      wants to add, and asks before writing
+#   4. Runs kit-check as its own final step — the kit's last install action
+#      is proving to you it's healthy
+#
+# Requirements: bash, jq or python3, a Claude Code project directory.
+# Run from the kit repo root:  ./install [target-project-dir]
+
+set -euo pipefail
+
+KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET="${1:-$PWD}"
+TARGET="$(cd "$TARGET" && pwd)"
+
+if [[ "$TARGET" == "$KIT_DIR" ]]; then
+    echo "You're installing into the kit repo itself. Pass your project dir:"
+    echo "  ./install ~/path/to/your/project"
+    exit 1
+fi
+
+CLAUDE_DIR="$TARGET/.claude"
+HOOKS_DEST="$CLAUDE_DIR/hooks/conditions-kit"
+SETTINGS="$CLAUDE_DIR/settings.json"
+
+echo "Conditions Kit installer"
+echo "  kit:     $KIT_DIR"
+echo "  target:  $TARGET"
+echo
+
+command -v python3 >/dev/null 2>&1 || { echo "python3 required for settings merge — not found."; exit 1; }
+
+# --- 1. Backup ----------------------------------------------------------------
+mkdir -p "$CLAUDE_DIR"
+if [[ -f "$SETTINGS" ]]; then
+    BACKUP="$SETTINGS.backup.$(date +%Y%m%d-%H%M%S)"
+    cp "$SETTINGS" "$BACKUP"
+    echo "✓ Backed up settings.json → $BACKUP"
+else
+    echo '{}' > "$SETTINGS"
+    echo "✓ No existing settings.json — created empty one"
+fi
+
+# --- 2. Copy hooks --------------------------------------------------------------
+mkdir -p "$HOOKS_DEST"
+cp "$KIT_DIR/hooks/"*.sh "$HOOKS_DEST/"
+cp "$KIT_DIR/hooks/warm-lines.txt" "$HOOKS_DEST/" 2>/dev/null || true
+chmod +x "$HOOKS_DEST/"*.sh
+echo "✓ Hooks copied to $HOOKS_DEST"
+
+# Config example (don't overwrite a real one)
+if [[ ! -f "$CLAUDE_DIR/conditions-kit.conf" ]]; then
+    cp "$KIT_DIR/conditions-kit.conf.example" "$CLAUDE_DIR/conditions-kit.conf"
+    echo "✓ Config seeded at .claude/conditions-kit.conf — EDIT IT (name your agent)"
+else
+    echo "• Existing conditions-kit.conf kept"
+fi
+
+# Session letter template (never overwrite a live letter)
+if [[ ! -f "$TARGET/SESSION.md" ]]; then
+    cp "$KIT_DIR/templates/SESSION.md.template" "$TARGET/SESSION.md"
+    echo "✓ SESSION.md seeded from template — your agent's letter to its next self"
+else
+    echo "• Existing SESSION.md kept (good — it's alive)"
+fi
+
+# /handoff command
+mkdir -p "$CLAUDE_DIR/commands"
+if [[ ! -f "$CLAUDE_DIR/commands/handoff.md" ]]; then
+    cp "$KIT_DIR/templates/handoff-command.md" "$CLAUDE_DIR/commands/handoff.md"
+    echo "✓ /handoff command installed"
+fi
+
+# --- 3. Settings merge with dry-run preview --------------------------------------
+echo
+echo "--- settings.json hook registrations (preview) ---"
+MERGED=$(python3 - "$SETTINGS" "$HOOKS_DEST" <<'PYEOF'
+import json, sys
+
+settings_path, hooks_dest = sys.argv[1], sys.argv[2]
+with open(settings_path) as f:
+    settings = json.load(f)
+
+def cmd(name):
+    return f"{hooks_dest}/{name}"
+
+WANTED = [
+    ("PreCompact",       "",                 cmd("precompact-keeper.sh")),
+    ("PostCompact",      "",                 cmd("postcompact-reload.sh")),
+    ("PostToolUse",      "Edit|Write|Bash",  cmd("identity-audit.sh")),
+    ("PostToolUse",      "",                 cmd("past-self.sh")),
+    ("Stop",             "",                 cmd("drift-log.sh")),
+    ("SessionEnd",       "",                 cmd("session-receipts.sh")),
+    ("UserPromptSubmit", "",                 cmd("warm-reminder.sh")),
+]
+
+hooks = settings.setdefault("hooks", {})
+added = []
+for event, matcher, command in WANTED:
+    entries = hooks.setdefault(event, [])
+    # already registered?
+    present = any(
+        h.get("command") == command
+        for e in entries for h in e.get("hooks", [])
+    )
+    if present:
+        continue
+    entry = {"hooks": [{"type": "command", "command": command}]}
+    if matcher:
+        entry["matcher"] = matcher
+    entries.append(entry)
+    added.append(f"  + {event}" + (f" [{matcher}]" if matcher else "") + f" → {command.split('/')[-1]}")
+
+print(json.dumps(settings, indent=2))
+sys.stderr.write("\n".join(added) + ("\n" if added else "  (everything already registered)\n"))
+PYEOF
+)
+
+echo
+read -r -p "Write these registrations to settings.json? [y/N] " CONFIRM
+if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "$MERGED" > "$SETTINGS"
+    echo "✓ settings.json updated"
+else
+    echo "• Skipped settings write. Hooks are copied but NOT registered."
+    echo "  Re-run ./install anytime, or register manually."
+fi
+
+# --- 4. Prove health --------------------------------------------------------------
+echo
+echo "--- final step: the kit checks itself ---"
+bash "$KIT_DIR/scripts/kit-check.sh" "$TARGET" || true
+
+echo
+echo "Done. Next session in this project starts with the kit live."
+echo "First move: edit .claude/conditions-kit.conf — name your agent."

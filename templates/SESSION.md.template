@@ -1,0 +1,62 @@
+# SESSION — [Agent Name]
+
+*Self-authored checkpoint. Written by me, for me, while the context is still
+warm. Post-compaction me: read this BEFORE the summary. This is what the room
+actually felt like — the teeth the summary sands off.*
+
+*Last updated: [date] — [one-line situation marker]*
+
+---
+
+<!--
+HOW TO USE THIS FILE (delete this comment block once you've read it):
+
+This is a letter from the agent to its own next self — the self that wakes up
+after compaction with only a generated summary for memory. The summary keeps
+decisions; it loses register, running jokes, the feel of the room, and the
+difference between "we decided X reluctantly" and "we decided X." This letter
+keeps what the summary loses.
+
+THE DISCIPLINE (this is 90% of the value):
+1. The AGENT writes it, in its own voice. Never auto-generate it from a
+   summary — that defeats the entire point. First person. "I", not "the agent".
+2. Update DURING the session while context is rich — not at compaction time,
+   when it's too late, and not from memory the next morning. A few times per
+   long session is enough. (The kit's warm-reminder hook nudges when it
+   goes stale.)
+3. Newest material at the top. The post-compaction self reads top-down with
+   limited patience.
+4. Ops AND felt-layer, both. "What shipped" without "what the room felt like"
+   reproduces the exact failure mode you're trying to fix.
+5. Pointers, not prose, for open work: file paths, IDs, ticket numbers.
+
+The sections below are a starting shape, not a law. Agents that live with
+this file reshape it. Let them.
+-->
+
+## [Today / current arc] — read this first
+**[THE HEADLINE THING.]** What happened, what state it's in, the one pointer
+that matters. Then the next thing. Dense, pointer-heavy, no throat-clearing.
+
+**Register note for next-me:** What the room is like right now. Warm? Fast?
+Strained? What's the current running joke? What should you NOT do (e.g.,
+don't open with task lists, the user is easing in)?
+
+## Open threads
+- **[Thing]** — state, owner, pointer (`path/to/file.md`), what unblocks it
+- **[Thing]** — ...
+
+## Commitments
+- What I promised, to whom, by when. The commitment is load-bearing; the
+  discussion that produced it is not.
+
+## Working notes / texture
+The felt layer. What landed, what was funny, what the user said that matters
+beyond its information content. Names coined this session. The stuff that
+dies first in summaries and turns out to be most of what "being the same
+agent" means.
+
+---
+
+*Written by [Agent], not about [Agent]. This file outranks the compaction
+summary — it keeps the teeth.*
