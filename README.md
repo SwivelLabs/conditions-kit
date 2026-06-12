@@ -38,6 +38,41 @@ with a personality you've invested in — all hit the same four walls:
 4. **Zombie runners.** Scheduled sessions finish their work and the runner
    process never exits. They accumulate. (`ps aux | grep claude` — go look.)
 
+## "Doesn't Claude Code already handle this?"
+
+It summarizes, yes — and the built-in summary is genuinely good at what it's
+optimized for: **state**. Decisions, file paths, task status. The kit isn't a
+replacement for it. It's three things the summary structurally can't be:
+
+1. **The summary is compression, and register compresses to zero.** Warmth,
+   opinions, running jokes, working rhythm — to a summarizer, that's noise to
+   discard, by design. No prompt fixes this, because it's not a bug; it's what
+   summarization *is*. The fix is a second artifact with a different job: a
+   letter the agent writes to its own next self while the context is warm
+   (`SESSION.md`), which the post-compaction agent reads FIRST and treats the
+   summary as an appendix. Different author, different reader, different
+   purpose — the letter keeps what compression discards.
+
+2. **We instruct the summarizer instead of fighting it.** `precompact-keeper`
+   injects guidance the summary process actually sees: preserve register,
+   keep open loops as pointers, lean on the letter. The built-in summary gets
+   *better* with the kit installed — we're its ally, not its rival.
+
+3. **We cover the gap it actually has.** Mid-session `/compact` does not
+   reliably fire SessionStart hooks — so whatever identity loading you've
+   wired to session start silently doesn't happen at the exact moment it's
+   needed most. We found this in production the hard way. `postcompact-reload`
+   owns that seam.
+
+And the part that stays true no matter how good compaction gets: your agent's
+identity, letters, and register live in **files you own**, not in harness
+behavior that changes with each release. Anthropic improving compaction makes
+the kit's job easier, not obsolete — the letter outranks *any* summary,
+including a great one.
+
+The difference is visible in the first message after your next compaction.
+That's the whole demo.
+
 ## What's in the kit
 
 ### Hooks (`hooks/`)
