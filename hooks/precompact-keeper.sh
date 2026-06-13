@@ -1,10 +1,14 @@
 #!/bin/bash
 # precompact-keeper.sh — PreCompact hook. Shapes HOW compaction summarizes.
 #
-# Fires before context compaction. Stdout becomes context the summarizer sees
-# BEFORE generating its summary. Most people let compaction happen TO their
-# agent. This hook makes compaction happen FOR it: you're telling the
-# summarizer what is load-bearing and what is noise.
+# Fires before context compaction. This is a BEST-EFFORT nudge to the
+# summarization process — PreCompact stdout goes to the summarizer pipeline,
+# not to the resumed agent's context (per the docs, only SessionStart /
+# UserPromptSubmit / UserPromptExpansion stdout reaches the model). Treat any
+# effect here as a bonus. The GUARANTEED continuity path is the SESSION.md
+# letter plus the compact-reload.sh hook (SessionStart:compact), which is what
+# actually re-injects identity after the seam. Most people let compaction
+# happen TO their agent; this hook asks it to happen FOR it.
 #
 # The single biggest failure mode of long-lived agents is not forgetting
 # facts — it's the summary quietly rewriting WHO the agent is. Warmth gets
@@ -41,7 +45,7 @@ About to compact. Before you summarize this conversation, read these and write t
 - Routine command output unless something surprising happened in it.
 - Multiple paraphrases of the same decision.
 
-**After you compact:** the postcompact-reload hook fires next and re-reads the identity files. Your summary is what bridges the agent's self-model across the compaction seam. Write it like you're writing FOR $KIT_DISPLAY, not ABOUT $KIT_DISPLAY.
+**After you compact:** the compact-reload hook fires on SessionStart and re-injects the session letter + identity files. Your summary bridges the agent's self-model across the seam — write it FOR $KIT_DISPLAY, not ABOUT $KIT_DISPLAY.
 
 ===
 EOF

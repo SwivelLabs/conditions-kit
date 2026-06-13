@@ -71,7 +71,7 @@ for event, entries in settings.get("hooks", {}).items():
         for h in entry.get("hooks", []):
             c = h.get("command", "")
             if "conditions-kit" in c:
-                registered.add(os.path.basename(c.split()[0]))
+                registered.add(os.path.basename(c))  # full string; kit commands carry no args, space-safe
 
 on_disk = {os.path.basename(p) for p in glob.glob(os.path.join(hooks_dir, "*.sh"))}
 on_disk.discard("_kit-lib.sh")  # library, not a hook
@@ -103,7 +103,7 @@ if [[ ! -f "$SESSION_FILE" ]]; then
     warn "no session letter at $SESSION_FILE — the highest-leverage file in this kit is missing"
 else
     NOW=$(date +%s)
-    MTIME=$(stat -f %m "$SESSION_FILE" 2>/dev/null || stat -c %Y "$SESSION_FILE" 2>/dev/null || echo 0)
+    MTIME=$(stat -c %Y "$SESSION_FILE" 2>/dev/null || stat -f %m "$SESSION_FILE" 2>/dev/null || echo 0)
     AGE_H=$(( (NOW - MTIME) / 3600 ))
     if (( AGE_H > 72 )); then
         warn "session letter is ${AGE_H}h stale — the letter only works if it's warm"

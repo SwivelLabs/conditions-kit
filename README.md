@@ -53,33 +53,33 @@ replacement for it. It's three things the summary structurally can't be:
    summary as an appendix. Different author, different reader, different
    purpose — the letter keeps what compression discards.
 
-2. **We instruct the summarizer instead of fighting it.** `precompact-keeper`
-   injects guidance the summary process actually sees: preserve register,
-   keep open loops as pointers, lean on the letter. The built-in summary gets
-   *better* with the kit installed — we're its ally, not its rival.
+2. **The reload uses the one event that actually reaches the model.** After a
+   compaction, `compact-reload` fires on `SessionStart` (matcher `compact`) and
+   re-injects your session letter — because SessionStart stdout is added to the
+   model's context, where a `PostCompact` hook's stdout only goes to a debug
+   log. The distinction is the whole ballgame, and it's the thing most
+   home-rolled setups get wrong (we did too, until we read our own fleet's
+   logs). `precompact-keeper` additionally nudges the summarizer; treat that as
+   a bonus — the guaranteed path is the letter + the SessionStart reload.
 
-3. **We cover the gap it actually has.** Mid-session `/compact` does not
-   reliably fire SessionStart hooks — so whatever identity loading you've
-   wired to session start silently doesn't happen at the exact moment it's
-   needed most. We found this in production the hard way. `postcompact-reload`
-   owns that seam.
+3. **The durable layer is files, not hooks.** Your agent's identity, letter,
+   and register live in **files you own** (`SESSION.md`, your identity docs),
+   surfaced by hooks but not dependent on any single hook's quirks. If a hook
+   event's behavior ever changes, the letter still outranks the summary the
+   moment the agent re-reads it.
 
-And the part that stays true no matter how good compaction gets: your agent's
-identity, letters, and register live in **files you own**, not in harness
-behavior that changes with each release. Anthropic improving compaction makes
-the kit's job easier, not obsolete — the letter outranks *any* summary,
-including a great one.
-
-The difference is visible in the first message after your next compaction.
-That's the whole demo.
+And because the durable layer is files you own, Anthropic improving compaction
+makes the kit's job *easier*, not obsolete — the letter outranks *any* summary,
+including a great one. The difference is visible in the first message after your
+next compaction. That's the whole demo.
 
 ## What's in the kit
 
 ### Hooks (`hooks/`)
 | Hook | Event | What it does |
 |---|---|---|
-| `precompact-keeper` | PreCompact | Instructs the summarizer: read the session letter first, preserve register, open loops as pointers — don't flatten the agent into assistant-voice |
-| `postcompact-reload` | PostCompact | Receipt + inline session-letter reload after compaction. Covers the gap where SessionStart doesn't fire on mid-session `/compact` (it doesn't — we checked the hard way) |
+| `compact-reload` | SessionStart `compact` | The load-bearing reload: re-injects the session letter + identity files into context after a compaction. SessionStart stdout reaches the model; this is the event that actually works |
+| `precompact-keeper` | PreCompact | Best-effort nudge to the summarizer: read the letter first, preserve register, open loops as pointers. Bonus layer — the guarantee is the letter + the SessionStart reload |
 | `identity-audit` | PostToolUse | Paper trail on every write touching identity files — including the `sed -i` Bash side-door v1 missed for weeks |
 | `drift-log` | Stop | Captures each session's opening register. Drift becomes measurable |
 | `warm-reminder` | UserPromptSubmit | Probability-gated lines in your agent's own voice + session-letter staleness nudge. The pool is a text file; make it yours |

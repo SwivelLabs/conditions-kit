@@ -26,8 +26,11 @@ set -uo pipefail
 # --- portable helpers -------------------------------------------------------
 
 # kit_mtime FILE — epoch mtime, 0 if missing. Works on macOS and Linux.
+# GNU (-c) first: on Linux, BSD `stat -f` exits 0 with garbage (filesystem
+# info), so BSD-first would never reach the GNU branch. macOS `stat -c` fails
+# cleanly and falls through to `-f`. This order is correct on both.
 kit_mtime() {
-    stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
+    stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
 }
 
 kit_ts_utc()   { date -u +%Y-%m-%dT%H:%M:%SZ; }

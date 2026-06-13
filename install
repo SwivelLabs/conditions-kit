@@ -91,8 +91,15 @@ def cmd(name):
     return f"{hooks_dest}/{name}"
 
 WANTED = [
+    # The load-bearing reload: SessionStart fires on source=compact (and on
+    # resume of a compacted session) and its stdout reaches the model. This is
+    # the ONLY correct event for re-injecting the session letter after a
+    # compaction — PreCompact/PostCompact stdout goes to the debug log only.
+    ("SessionStart",     "compact",          cmd("compact-reload.sh")),
+    # Best-effort summarizer nudge (stdout to the summary process, not the
+    # resumed agent). Harmless if it has no effect; the SESSION.md letter +
+    # the SessionStart reload above are what actually guarantee continuity.
     ("PreCompact",       "",                 cmd("precompact-keeper.sh")),
-    ("PostCompact",      "",                 cmd("postcompact-reload.sh")),
     ("PostToolUse",      "Edit|Write|Bash",  cmd("identity-audit.sh")),
     ("PostToolUse",      "",                 cmd("past-self.sh")),
     ("Stop",             "",                 cmd("drift-log.sh")),

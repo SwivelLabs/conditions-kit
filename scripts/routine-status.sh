@@ -31,7 +31,7 @@ OUT="${ROUTINE_STATUS_OUT:-./ROUTINE-STATUS.md}"
 
 now=$(date +%s)
 
-mtime_of() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+mtime_of() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
 
 agei() {  # hours since newest file matching glob; -1 if none
     local newest=0 m

@@ -1,26 +1,30 @@
 #!/bin/bash
-# postcompact-reload.sh — PostCompact hook. Closes the compaction loop.
+# compact-reload.sh — SessionStart hook (matcher: compact). Closes the loop.
 #
-# Fires AFTER context compaction completes. precompact-keeper shaped the
-# summary; this hook re-grounds the agent on the other side of the seam.
+# Fires when a session starts with source=compact — i.e. right after a
+# context compaction — and re-grounds the agent on the other side of the seam.
 #
-# WHY THIS HOOK EXISTS (the gap most people don't know they have):
-# You might assume SessionStart fires after a compaction and reloads whatever
-# your SessionStart hook loads. Empirically: SessionStart:compact only fires
-# reliably on EXTERNAL resume of a compacted session (`claude --resume`),
-# NOT on the mid-session /compact path. We found this in production
-# (May 2026) when an agent came back from /compact with no identity reload
-# and nobody noticed for hours — the summary became the only self it had.
-# The fix: PostCompact owns the reload. If SessionStart:compact also fires,
-# it's redundant-but-harmless belt and suspenders.
+# WHY THIS EVENT (the part that's easy to get wrong):
+# SessionStart is one of only three hook events whose plain stdout is added
+# to the model's context (the others are UserPromptSubmit and
+# UserPromptExpansion). Every OTHER event — including PreCompact and
+# PostCompact — sends stdout to the debug log, where the model never sees it.
+# So a "post-compaction reload" registered on PostCompact silently does
+# NOTHING: the hook fires, echoes the letter, and the letter lands in a log
+# file the agent never reads. The correct, load-bearing event is
+# SessionStart with matcher "compact" — it fires after `/compact` AND after
+# `claude --resume` of a compacted session, and its stdout reaches context.
+# (Verified against a 10-agent fleet's logs: SessionStart fired with
+# source=compact reliably across months; a PostCompact reload delivered to
+# the log only.) Ref: https://code.claude.com/docs/en/hooks.md
 #
 # WHAT IT DOES:
-#   1. Emits a receipt banner — proof the chain ran (silent hooks rot silently)
+#   1. Emits a banner — proof the reload ran (silent hooks rot silently)
 #   2. Injects the session letter inline — the letter outranks the summary
 #   3. Lists the identity files the agent should re-read before answering
 #   4. Logs the event for later audit
 #
-# Exit 0 always — a hook that blocks post-compact is worse than silent.
+# Exit 0 always — a hook that blocks SessionStart is worse than silent.
 
 set -uo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_kit-lib.sh"
@@ -72,6 +76,6 @@ echo "==="
 echo
 
 # --- 4. Log the receipt ------------------------------------------------------
-kit_log_event "source: $KIT_HOOK_SOURCE | hook: postcompact-reload | kind: post_compact_reload"
+kit_log_event "source: $KIT_HOOK_SOURCE | hook: compact-reload | kind: compact_reload"
 
 exit 0
