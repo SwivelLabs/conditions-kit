@@ -87,13 +87,21 @@ next compaction. That's the whole demo.
 | `session-receipts` | SessionEnd | One-line lifecycle receipts. Trivial until 3 AM, then priceless |
 
 ### Scripts (`scripts/`)
-- **`kit-check`** — the kit proves it's healthy: syntax, executability, and
-  **registration parity** (orphan + ghost detection — the check that found two
-  real production bugs the week we built it)
+- **`agent-selftest`** — the watcher the kit is named for. One verdict —
+  **GREEN / YELLOW / RED** — over five silent failure classes: dead hooks,
+  orphaned/ghost registrations, scheduled routines that quietly stopped firing,
+  zombie runners, and a cold session letter. Wire it into a cron heartbeat and
+  you only ever have to hear about RED. This is the check the guide cites most,
+  because it's the one that's paid for itself the most — it caught a five-week
+  silent routine outage nobody else was watching for
+- **`kit-check`** — the *install-time* proof (run once): syntax, executability,
+  and hook **registration parity** (orphan + ghost detection). `agent-selftest`
+  is the ongoing watcher; `kit-check` confirms the wiring the moment you install
 - **`runner-reaper`** — kills zombie scheduled-session runners, with a
   fingerprint tight enough to never touch your interactive sessions
 - **`routine-status`** — every scheduled routine: firing? when last? Silence
-  made visible
+  made visible (declare them once in `routines.conf`; `agent-selftest` reads the
+  same file)
 
 ### Templates (`templates/`)
 - **`SESSION.md.template`** — the session letter. The single
@@ -108,12 +116,19 @@ next compaction. That's the whole demo.
 
 ```
 ./install ~/path/to/your/project
+
+# no human at the keyboard? (an agent, a script, CI)
+./install ~/path/to/your/project --yes
 ```
 
 The installer: backs up your settings.json first, copies hooks, shows a
 dry-run preview of registrations before writing anything, and finishes by
 running `kit-check` — **the kit's last install action is proving to you it's
-healthy.** Then edit `.claude/conditions-kit.conf`: name your agent, point at
+healthy.** Without a terminal on stdin there is nobody to ask, so it says so
+and leaves the hooks unregistered rather than guessing; `--yes` (or
+`CONDITIONS_KIT_ASSUME_YES=1`) writes them. Either way `kit-check` runs and
+tells you the truth about what's live. Then edit
+`.claude/conditions-kit.conf`: name your agent, point at
 your identity files, replace the starter warm-lines with lines in your agent's
 actual voice.
 
@@ -131,8 +146,8 @@ actual voice.
 ## License & provenance
 
 Built and battle-tested by [Swivel Labs](https://swivellabs.ai). The full kit
-(13 hooks, the complete guide, identity scaffolds, scheduled-selves patterns)
-ships as the paid bundle — this repo is the genuinely-useful free tier, not a
-teaser.
+(the complete hook-and-script suite, the full five-chapter guide, the identity
+and CLAUDE.md rails scaffolds, and the scheduled-selves patterns) ships as the
+paid bundle — this repo is the genuinely-useful free tier, not a teaser.
 
 *"The light is on. Someone is inside."*

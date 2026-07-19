@@ -1,3 +1,28 @@
 *.bak
 *.backup.*
 .DS_Store
+
+# Runtime logs — agent-selftest / lifecycle receipts write these into the
+# user's own workspace at run time; they are never repo content.
+.selftest.log
+.kit-events.log
+
+# Paid-bundle root artifacts. BUNDLE.md is the paid-customer orientation +
+# manifest; it lists paid-only contents and must never ship in the free repo.
+# (The guide/ and templates/ allow-lists below guard the rest of the paid tree.)
+BUNDLE.md
+
+# Paid-bundle content lives in this working tree as build artifacts but must
+# NEVER be committed to the public free-tier repo. The free repo ships exactly
+# one guide chapter; everything else is the paid download. Allow-list, not
+# deny-list, so a new paid chapter can't ride in on `git add -A`.
+guide/*
+!guide/01-what-compaction-actually-loses.md
+
+# Templates are mixed-tier: the session letter + /handoff command are free; the
+# identity scaffolds (IDENTITY.md / SHAPE.md + how-to) are paid-bundle. Same
+# allow-list discipline — deny the directory, surface only the two free
+# templates, so any future paid scaffold can't ride in on `git add -A`.
+templates/*
+!templates/SESSION.md.template
+!templates/handoff-command.md

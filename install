@@ -11,12 +11,28 @@
 #      is proving to you it's healthy
 #
 # Requirements: bash, jq or python3, a Claude Code project directory.
-# Run from the kit repo root:  ./install [target-project-dir]
+# Run from the kit repo root:  ./install [target-project-dir] [--yes]
+#
+# --yes (or -y, or CONDITIONS_KIT_ASSUME_YES=1) writes the settings.json
+# registrations without prompting. Use it when an agent or a script is doing
+# the installing — there's no human at the prompt in that case, and step 3
+# would otherwise have nothing to ask.
 
 set -euo pipefail
 
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET="${1:-$PWD}"
+
+ASSUME_YES="${CONDITIONS_KIT_ASSUME_YES:-0}"
+TARGET_ARG=""
+for arg in "$@"; do
+    case "$arg" in
+        -y|--yes) ASSUME_YES=1 ;;
+        -*)       echo "Unknown option: $arg"; echo "Usage: ./install [target-project-dir] [--yes]"; exit 1 ;;
+        *)        TARGET_ARG="$arg" ;;
+    esac
+done
+
+TARGET="${TARGET_ARG:-$PWD}"
 TARGET="$(cd "$TARGET" && pwd)"
 
 if [[ "$TARGET" == "$KIT_DIR" ]]; then
@@ -130,11 +146,24 @@ PYEOF
 )
 
 echo
-read -r -p "Write these registrations to settings.json? [y/N] " CONFIRM
+CONFIRM=""
+if [[ "$ASSUME_YES" == "1" ]]; then
+    CONFIRM="y"
+    echo "• --yes given — writing registrations without prompting."
+elif [[ ! -t 0 ]]; then
+    # No human at the prompt (piped, CI, or an agent running the installer).
+    # Don't silently die on EOF and don't guess: say so, and say how to finish.
+    echo "• No terminal on stdin — nothing to ask, so nothing written."
+    echo "  Hooks are copied but NOT registered. To finish:"
+    echo "      $KIT_DIR/install $TARGET --yes"
+else
+    read -r -p "Write these registrations to settings.json? [y/N] " CONFIRM || CONFIRM=""
+fi
+
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
     echo "$MERGED" > "$SETTINGS"
     echo "✓ settings.json updated"
-else
+elif [[ -t 0 && "$ASSUME_YES" != "1" ]]; then
     echo "• Skipped settings write. Hooks are copied but NOT registered."
     echo "  Re-run ./install anytime, or register manually."
 fi
@@ -145,5 +174,11 @@ echo "--- final step: the kit checks itself ---"
 bash "$KIT_DIR/scripts/kit-check.sh" "$TARGET" || true
 
 echo
-echo "Done. Next session in this project starts with the kit live."
-echo "First move: edit .claude/conditions-kit.conf — name your agent."
+if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "Done. Next session in this project starts with the kit live."
+    echo "First move: edit .claude/conditions-kit.conf — name your agent."
+else
+    echo "Done — but NOT live yet. The orphan warnings above are expected:"
+    echo "the hooks are on disk and unregistered because settings.json was not"
+    echo "written. Re-run with --yes (or answer y) and they clear."
+fi

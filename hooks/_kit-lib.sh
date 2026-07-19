@@ -71,6 +71,13 @@ kit_load_config() {
     KIT_NOTES_DIR="${KIT_NOTES_DIR:-}"
     KIT_LOG="${KIT_LOG:-}"
 
+    # agent-selftest tunables (all optional; safe defaults that never cry wolf
+    # on a fresh, unconfigured install). See scripts/agent-selftest.sh.
+    KIT_SESSION_STALE_H="${KIT_SESSION_STALE_H:-36}"   # session-letter staleness (hours) → YELLOW
+    KIT_ZOMBIE_PATTERN="${KIT_ZOMBIE_PATTERN:-claude.*--print}"  # pgrep pattern for scheduled-session runners
+    KIT_ZOMBIE_MAX_H="${KIT_ZOMBIE_MAX_H:-3}"          # a runner older than this is a suspected zombie
+    KIT_ROUTINES_CONF="${KIT_ROUTINES_CONF:-}"         # declared scheduled routines (shared w/ routine-status)
+
     local conf=""
     if [[ -n "${CONDITIONS_KIT_CONF:-}" && -f "${CONDITIONS_KIT_CONF}" ]]; then
         conf="$CONDITIONS_KIT_CONF"
@@ -87,6 +94,14 @@ kit_load_config() {
     [[ -z "$KIT_SESSION_FILE" ]] && KIT_SESSION_FILE="$KIT_WORKSPACE/SESSION.md"
     [[ -z "$KIT_LOG" ]] && KIT_LOG="$KIT_WORKSPACE/.kit-events.log"
     [[ -z "$KIT_NOTES_DIR" ]] && KIT_NOTES_DIR="$KIT_WORKSPACE/notes"
+    # Routine declaration: prefer an explicit conf value, else the conventional
+    # location next to settings.json. Empty/absent → routine-parity is skipped
+    # (a user with no scheduled routines must never see a false alarm).
+    if [[ -z "$KIT_ROUTINES_CONF" ]]; then
+        if [[ -f "$KIT_WORKSPACE/.claude/routines.conf" ]]; then
+            KIT_ROUTINES_CONF="$KIT_WORKSPACE/.claude/routines.conf"
+        fi
+    fi
     return 0
 }
 

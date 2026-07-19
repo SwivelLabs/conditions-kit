@@ -38,3 +38,17 @@ KIT_IDENTITY_FILES="IDENTITY.md SHAPE.md SOUL.md"
 # SESSION_STALE_HOURS=36     # session letter age before the staleness nudge
 # PAST_SELF_RATE=40          # 1-in-N tool uses surfaces a past-self fragment
 # MAX_AGE_MIN=180            # runner-reaper: minutes before a scheduled runner is stale
+
+# agent-selftest tuning (all optional — defaults never cry wolf on a fresh install):
+# KIT_SESSION_STALE_H=36          # session-letter age (hours) → YELLOW
+# KIT_ZOMBIE_PATTERN="claude.*--print"   # pgrep fingerprint for scheduled-session runners
+# KIT_ZOMBIE_MAX_H=3              # a runner older than this is a suspected zombie
+# KIT_ROUTINES_CONF="$KIT_WORKSPACE/.claude/routines.conf"  # declared routines (shared w/ routine-status)
+#
+# routines.conf is how agent-selftest catches THE orphan — a scheduled job that
+# silently stops firing. Declare what SHOULD run; the check confirms each one
+# still produces fresh output. One line per routine, pipe-separated:
+#   name | output path or glob | max age hours | cadence label
+#   nightly-digest   | $HOME/agent/digests/*.md  | 30  | daily 3am
+#   weekly-synthesis | $HOME/agent/SYNTHESIS.md  | 192 | Sun 1pm
+# "never produced output" = almost always a routine that was never registered.
