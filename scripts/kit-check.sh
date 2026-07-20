@@ -10,7 +10,11 @@
 #      Both of the worst silent failures we've shipped were orphans —
 #      hooks everyone believed were running that were never wired up.
 #   3. Session letter exists + freshness
-#   4. jq present (several hooks need it)
+#   4. Reload integrity (v0.2) — the last compact-reload's logged byte
+#      receipt matches the persisted payload copy. Catches the nastiest
+#      class we've been burned by: a reload that LOOKED like success but
+#      was silently truncated or half-written.
+#   5. jq present (several hooks need it)
 #
 # Exit code = number of failures. 0 = healthy.
 
@@ -31,7 +35,7 @@ echo "Conditions Kit health check — $TARGET"
 echo
 
 # --- 1. Hook files -------------------------------------------------------------
-echo "[1/4] Hook files"
+echo "[1/5] Hook files"
 if [[ ! -d "$HOOKS_DIR" ]]; then
     fail "hooks dir missing: $HOOKS_DIR (run ./install)"
 else
@@ -49,7 +53,7 @@ else
 fi
 
 # --- 2. Registration parity ------------------------------------------------------
-echo "[2/4] Registration parity (orphans + ghosts)"
+echo "[2/5] Registration parity (orphans + ghosts)"
 if [[ ! -f "$SETTINGS" ]]; then
     fail "settings.json missing — nothing is registered"
 elif ! command -v python3 >/dev/null 2>&1; then
@@ -94,7 +98,7 @@ PYEOF
 fi
 
 # --- 3. Session letter ------------------------------------------------------------
-echo "[3/4] Session letter"
+echo "[3/5] Session letter"
 CONF="$CLAUDE_DIR/conditions-kit.conf"
 SESSION_FILE="$TARGET/SESSION.md"
 # shellcheck disable=SC1090
@@ -112,8 +116,38 @@ else
     fi
 fi
 
-# --- 4. Dependencies ----------------------------------------------------------------
-echo "[4/4] Dependencies"
+# --- 4. Reload integrity (v0.2) ---------------------------------------------------
+# The compact-reload hook persists its full payload and logs a byte-count
+# receipt. If the copy on disk doesn't match the last logged receipt, the
+# reload the agent SAW and the reload that RAN were different things.
+# Report the looking even when there's nothing to check — a silent check
+# is indistinguishable from a check that never ran.
+echo "[4/5] Reload integrity (guard receipts)"
+KIT_EVENTS="$TARGET/.kit-events.log"
+RELOAD_COPY="$TARGET/.claude/conditions-kit-last-reload.md"
+# shellcheck disable=SC1090
+[[ -f "$CONF" ]] && source "$CONF" 2>/dev/null && RELOAD_COPY="${KIT_RELOAD_COPY:-$RELOAD_COPY}" && KIT_EVENTS="${KIT_LOG:-$KIT_EVENTS}"
+LAST_RELOAD=$(grep 'kind: compact_reload' "$KIT_EVENTS" 2>/dev/null | tail -1 || true)
+if [[ -z "$LAST_RELOAD" ]]; then
+    pass "no compact reload has fired yet — nothing to verify (checked $KIT_EVENTS)"
+elif [[ "$LAST_RELOAD" != *"bytes: "* ]]; then
+    warn "last reload predates the v0.2 guard (no byte receipt in log) — next compaction will stamp one"
+else
+    LOGGED_BYTES=$(echo "$LAST_RELOAD" | sed -n 's/.*bytes: \([0-9][0-9]*\).*/\1/p')
+    if [[ ! -f "$RELOAD_COPY" ]]; then
+        fail "reload log claims $LOGGED_BYTES bytes but the persisted copy is missing: $RELOAD_COPY"
+    else
+        COPY_BYTES=$(wc -c < "$RELOAD_COPY" | tr -d ' ')
+        if [[ "$COPY_BYTES" == "$LOGGED_BYTES" ]]; then
+            pass "last reload receipt matches the persisted copy ($COPY_BYTES bytes)"
+        else
+            fail "reload receipt mismatch — log says $LOGGED_BYTES bytes, copy on disk is $COPY_BYTES ($RELOAD_COPY)"
+        fi
+    fi
+fi
+
+# --- 5. Dependencies ----------------------------------------------------------------
+echo "[5/5] Dependencies"
 command -v jq >/dev/null 2>&1 && pass "jq present" || fail "jq missing — several hooks parse hook JSON with it (brew install jq / apt install jq)"
 
 echo

@@ -78,7 +78,7 @@ next compaction. That's the whole demo.
 ### Hooks (`hooks/`)
 | Hook | Event | What it does |
 |---|---|---|
-| `compact-reload` | SessionStart `compact` | The load-bearing reload: re-injects the session letter + identity files into context after a compaction. SessionStart stdout reaches the model; this is the event that actually works |
+| `compact-reload` | SessionStart `compact` | The load-bearing reload: re-injects the session letter + identity files into context after a compaction. SessionStart stdout reaches the model; this is the event that actually works. **v0.2: carries the Ground Integrity Guard** — persists the full payload to a file and stamps a byte-count receipt, so harness truncation can never pass as success (that exact failure hid for ten weeks in the fleet this kit comes from) |
 | `precompact-keeper` | PreCompact | Best-effort nudge to the summarizer: read the letter first, preserve register, open loops as pointers. Bonus layer — the guarantee is the letter + the SessionStart reload |
 | `identity-audit` | PostToolUse | Paper trail on every write touching identity files — including the `sed -i` Bash side-door v1 missed for weeks |
 | `drift-log` | Stop | Captures each session's opening register. Drift becomes measurable |
@@ -90,7 +90,10 @@ next compaction. That's the whole demo.
 - **`agent-selftest`** — the watcher the kit is named for. One verdict —
   **GREEN / YELLOW / RED** — over five silent failure classes: dead hooks,
   orphaned/ghost registrations, scheduled routines that quietly stopped firing,
-  zombie runners, and a cold session letter. Wire it into a cron heartbeat and
+  zombie runners, and a cold session letter. **v0.2: every verdict — including
+  GREEN — ends with a `checked:` receipt naming what was examined and what was
+  skipped.** A GREEN that can't say what it checked is indistinguishable from a
+  selftest that never ran. Wire it into a cron heartbeat and
   you only ever have to hear about RED. This is the check the guide cites most,
   because it's the one that's paid for itself the most — it caught a five-week
   silent routine outage nobody else was watching for
@@ -111,6 +114,10 @@ next compaction. That's the whole demo.
 - **`/handoff` command** — generates the letter on demand. Our agent wrote its
   own handoff at 8 AM after an overnight work loop; the new session picked up
   mid-sentence. That's the pattern, automated.
+- **`JOURNAL.md.template`** *(new in v0.2 — paid bundle)* — the relay baton:
+  one shared, append-only journal ALL your scheduled routines read at boot and
+  write at close, so your walks stop being blind to each other. Contract in the
+  header; the full pattern is in the guide's scheduled-selves chapter (paid).
 
 ## Install
 

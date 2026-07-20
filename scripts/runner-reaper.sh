@@ -39,9 +39,16 @@ DRY_RUN="${DRY_RUN:-0}"
 NOW=$(date +%s)
 mkdir -p "$(dirname "$REAPER_LOG")" 2>/dev/null
 
-ps -ax -o pid=,etime=,command= | while read -r PID ETIME CMD; do
+# NOTE (v0.2): the loop reads from process substitution, NOT a pipeline — a
+# piped `while` runs in a subshell where the counters below would silently
+# die at `done`. And the sweep ALWAYS writes a receipt: a reaper that found
+# nothing and a reaper that never ran must not produce the same (empty) log.
+MATCHED=0
+REAPED=0
+while read -r PID ETIME CMD; do
   echo "$CMD" | grep -qE "$REAPER_MATCH"   || continue
   echo "$CMD" | grep -qF -- "$REAPER_MATCH_2" || continue
+  MATCHED=$((MATCHED+1))
 
   # parse etime ([[dd-]hh:]mm:ss) → minutes
   MINS=0
@@ -61,8 +68,14 @@ ps -ax -o pid=,etime=,command= | while read -r PID ETIME CMD; do
     kill -TERM "$PID" 2>/dev/null
     sleep 1
     kill -0 "$PID" 2>/dev/null && kill -9 "$PID" 2>/dev/null
+    REAPED=$((REAPED+1))
     echo "$(date -u +%FT%TZ) reaped stale runner pid=$PID age=${MINS}m" >> "$REAPER_LOG"
   fi
-done
+done < <(ps -ax -o pid=,etime=,command=)
+
+# The sweep receipt — written every run, including (especially) at zero.
+SWEEP="$(date -u +%FT%TZ) sweep: matched=$MATCHED reaped=$REAPED (threshold ${MAX_AGE_MIN}m, dry_run=$DRY_RUN)"
+echo "$SWEEP" >> "$REAPER_LOG"
+echo "$SWEEP"
 
 exit 0

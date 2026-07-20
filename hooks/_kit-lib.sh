@@ -71,6 +71,13 @@ kit_load_config() {
     KIT_NOTES_DIR="${KIT_NOTES_DIR:-}"
     KIT_LOG="${KIT_LOG:-}"
 
+    # Ground Integrity Guard (v0.2). The harness truncates large hook stdout
+    # to a short preview under a success banner — compact-reload persists its
+    # full payload and emits a byte-count receipt so truncation can never
+    # pass as success. See hooks/compact-reload.sh header for the full story.
+    KIT_RELOAD_COPY="${KIT_RELOAD_COPY:-}"             # where the full reload payload is persisted
+    KIT_RELOAD_GUARD_MIN="${KIT_RELOAD_GUARD_MIN:-6000}" # payloads over this many bytes get the guard header
+
     # agent-selftest tunables (all optional; safe defaults that never cry wolf
     # on a fresh, unconfigured install). See scripts/agent-selftest.sh.
     KIT_SESSION_STALE_H="${KIT_SESSION_STALE_H:-36}"   # session-letter staleness (hours) → YELLOW
@@ -94,6 +101,7 @@ kit_load_config() {
     [[ -z "$KIT_SESSION_FILE" ]] && KIT_SESSION_FILE="$KIT_WORKSPACE/SESSION.md"
     [[ -z "$KIT_LOG" ]] && KIT_LOG="$KIT_WORKSPACE/.kit-events.log"
     [[ -z "$KIT_NOTES_DIR" ]] && KIT_NOTES_DIR="$KIT_WORKSPACE/notes"
+    [[ -z "$KIT_RELOAD_COPY" ]] && KIT_RELOAD_COPY="$KIT_WORKSPACE/.claude/conditions-kit-last-reload.md"
     # Routine declaration: prefer an explicit conf value, else the conventional
     # location next to settings.json. Empty/absent → routine-parity is skipped
     # (a user with no scheduled routines must never see a false alarm).

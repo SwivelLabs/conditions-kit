@@ -39,6 +39,14 @@ KIT_IDENTITY_FILES="IDENTITY.md SHAPE.md SOUL.md"
 # PAST_SELF_RATE=40          # 1-in-N tool uses surfaces a past-self fragment
 # MAX_AGE_MIN=180            # runner-reaper: minutes before a scheduled runner is stale
 
+# Ground Integrity Guard (v0.2). The harness truncates large hook stdout to a
+# short preview UNDER A SUCCESS BANNER — in production this hid a broken
+# reload for ten weeks. compact-reload persists its full payload to a file
+# and stamps stdout with a byte-count receipt so truncation can never pass
+# as success. kit-check closes the loop by comparing log receipt vs file.
+# KIT_RELOAD_COPY="$KIT_WORKSPACE/.claude/conditions-kit-last-reload.md"
+# KIT_RELOAD_GUARD_MIN=6000  # payloads over this many bytes get the guard header
+
 # agent-selftest tuning (all optional — defaults never cry wolf on a fresh install):
 # KIT_SESSION_STALE_H=36          # session-letter age (hours) → YELLOW
 # KIT_ZOMBIE_PATTERN="claude.*--print"   # pgrep fingerprint for scheduled-session runners

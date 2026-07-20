@@ -93,16 +93,24 @@ NOW="$(date +%s)"
 
 ISSUES=()   # YELLOW — visible, not urgent
 ALARMS=()   # RED    — wake someone
+CHECKED=()  # receipts — what this run actually looked at. A GREEN that can't
+            # say what it checked is indistinguishable from a check that
+            # never ran (v0.2 — "report the looking").
 
 # --- 1. Hook syntax (Failure 5) ---------------------------------------------
 if [[ -d "$HOOKS_DIR" ]]; then
+    HOOKS_PARSED=0
     for f in "$HOOKS_DIR"/*.sh; do
         [[ -f "$f" ]] || continue
         case "$f" in *.bak*|*.backup.*) continue ;; esac
+        HOOKS_PARSED=$((HOOKS_PARSED+1))
         if ! bash -n "$f" 2>/dev/null; then
             ALARMS+=("hook-syntax: $(basename "$f") no longer parses (bash -n) — it fails open, silently")
         fi
     done
+    CHECKED+=("hooks: ${HOOKS_PARSED} parsed")
+else
+    CHECKED+=("hooks: skipped, no dir")
 fi
 
 # --- 2. Hook registration parity: orphans + ghosts (Failure 5) --------------
@@ -132,13 +140,19 @@ if os.path.isdir(hooks_dir):
     on_disk.discard("_kit-lib.sh")   # library, not an event hook
     for o in sorted(on_disk - registered):
         print(f"YELLOW|ORPHAN — on disk but never registered, it will never fire: {o}")
+    print(f"COUNT|{len(registered)} registrations vs {len(on_disk)} on disk")
 PY
 )"
     while IFS='|' read -r level msg; do
         [[ -z "$level" ]] && continue
         [[ "$level" == "RED"    ]] && ALARMS+=("parity: $msg")
         [[ "$level" == "YELLOW" ]] && ISSUES+=("parity: $msg")
+        [[ "$level" == "COUNT"  ]] && CHECKED+=("parity: $msg")
     done <<< "$PARITY"
+elif [[ ! -f "$SETTINGS" ]]; then
+    CHECKED+=("parity: skipped, no settings.json")
+else
+    CHECKED+=("parity: skipped, no python3")
 fi
 
 # --- 3. Routine parity: should-run vs did-run (Failure 1 — THE check) --------
@@ -158,12 +172,14 @@ if [[ -n "${KIT_ROUTINES_CONF:-}" && -f "$KIT_ROUTINES_CONF" ]]; then
         (( newest == 0 )) && { echo -1; return; }
         echo $(( (NOW - newest) / 3600 ))
     }
+    N_ROUTINES=0
     while IFS='|' read -r name path max cadence; do
         name="$(echo "${name:-}" | xargs)"
         [[ -z "$name" || "$name" == \#* ]] && continue
         path="$(echo "${path:-}" | xargs)"; max="$(echo "${max:-}" | xargs)"
         [[ -z "$path" || -z "$max" ]] && continue
         path="$(eval echo "$path")"   # expand $HOME etc. from the conf
+        N_ROUTINES=$((N_ROUTINES+1))
         age="$(newest_age_h "$path")"
         if (( age < 0 )); then
             ALARMS+=("routine: '$name' has NEVER produced output — almost always means it was never registered (the orphan)")
@@ -173,32 +189,51 @@ if [[ -n "${KIT_ROUTINES_CONF:-}" && -f "$KIT_ROUTINES_CONF" ]]; then
             ISSUES+=("routine: '$name' is ${age}h stale (window ${max}h) — a fire may have been missed")
         fi
     done < "$KIT_ROUTINES_CONF"
+    CHECKED+=("routines: ${N_ROUTINES} declared, freshness verified")
+else
+    CHECKED+=("routines: skipped, none declared")
 fi
 
 # --- 4. Zombie scheduled-session runners (Failure 2) ------------------------
+# NOTE (v0.2): deliberately NO `case` inside $() here. Stock macOS /bin/bash
+# is 3.2, whose parser rejects `case` patterns inside command substitution —
+# the previous version of this check died mid-script on the platform's
+# DEFAULT shell (while passing under any newer bash) and the selftest still
+# exited 0. The silent-failure watcher had a silent failure. Keep this
+# section bash-3.2-clean.
 if command -v pgrep >/dev/null 2>&1; then
-    ZOMBIES="$(pgrep -f "$KIT_ZOMBIE_PATTERN" 2>/dev/null | while read -r pid; do
+    ZOMBIES=0
+    ZPIDS="$(pgrep -f "$KIT_ZOMBIE_PATTERN" 2>/dev/null || true)"
+    for pid in $ZPIDS; do
         etime="$(ps -o etime= -p "$pid" 2>/dev/null | tr -d ' ')"
-        case "$etime" in
-            *-*) echo "$pid" ;;   # days old — definitely stale
-            [0-9][0-9]:[0-9][0-9]:[0-9][0-9])  # HH:MM:SS — check the hour field
-                h="${etime%%:*}"; [[ "${h#0}" -ge "$KIT_ZOMBIE_MAX_H" ]] 2>/dev/null && echo "$pid" ;;
-        esac
-    done | wc -l | tr -d ' ')"
-    if [[ -n "$ZOMBIES" ]] && (( ZOMBIES > 0 )); then
+        if [[ "$etime" == *-* ]]; then
+            ZOMBIES=$((ZOMBIES+1))          # days old — definitely stale
+        elif [[ "$etime" =~ ^[0-9][0-9]:[0-9][0-9]:[0-9][0-9]$ ]]; then
+            h="${etime%%:*}"; h="${h#0}"    # HH:MM:SS — check the hour field
+            (( h >= KIT_ZOMBIE_MAX_H )) && ZOMBIES=$((ZOMBIES+1))
+        fi
+    done
+    if (( ZOMBIES > 0 )); then
         ISSUES+=("zombies: ${ZOMBIES} scheduled-runner process(es) older than ${KIT_ZOMBIE_MAX_H}h still resident (runner-reaper will sweep)")
     fi
+    CHECKED+=("zombies: ${ZOMBIES} stale >${KIT_ZOMBIE_MAX_H}h, pattern '${KIT_ZOMBIE_PATTERN}'")
+else
+    CHECKED+=("zombies: skipped, no pgrep")
 fi
 
 # --- 5. Session-letter staleness (Failure 6) --------------------------------
 if [[ -n "${KIT_SESSION_FILE:-}" ]]; then
     if [[ ! -f "$KIT_SESSION_FILE" ]]; then
         ISSUES+=("session: no letter at $(basename "$KIT_SESSION_FILE") — the highest-leverage file in the kit is missing")
+        CHECKED+=("letter: missing")
     else
         mt="$(kit_mtime "$KIT_SESSION_FILE")"
         if (( mt > 0 )); then
             age_h=$(( (NOW - mt) / 3600 ))
             (( age_h > KIT_SESSION_STALE_H )) && ISSUES+=("session: letter is ${age_h}h stale (>${KIT_SESSION_STALE_H}h) — a cold letter writes a flat next self")
+            CHECKED+=("letter: ${age_h}h old")
+        else
+            CHECKED+=("letter: age unreadable")
         fi
     fi
 fi
@@ -208,9 +243,18 @@ if   (( ${#ALARMS[@]} > 0 )); then VERDICT="RED"
 elif (( ${#ISSUES[@]} > 0 )); then VERDICT="YELLOW"
 else                               VERDICT="GREEN"; fi
 
+# The receipt string: what this run actually looked at. This rides on EVERY
+# verdict — a GREEN without it is indistinguishable from a selftest that
+# never ran, and a RED with it tells you what was ruled out.
+CHECKED_STR=""
+if (( ${#CHECKED[@]} > 0 )); then
+    for c in "${CHECKED[@]}"; do CHECKED_STR+="${CHECKED_STR:+ · }$c"; done
+fi
+
 REPORT="$TS | ${KIT_AGENT:-agent} | selftest: $VERDICT"
 (( ${#ALARMS[@]} > 0 )) && REPORT+=" | ALARMS: $(IFS='; '; echo "${ALARMS[*]}")"
 (( ${#ISSUES[@]} > 0 )) && REPORT+=" | issues: $(IFS='; '; echo "${ISSUES[*]}")"
+[[ -n "$CHECKED_STR" ]] && REPORT+=" | checked: $CHECKED_STR"
 
 # Human-readable to stdout...
 echo "agent-selftest ${KIT_SIGIL:-●}  —  $VERDICT"
@@ -225,6 +269,10 @@ fi
 if [[ "$VERDICT" == "GREEN" ]]; then
     echo
     echo "  ✅ all checks clean. The light is on."
+fi
+if [[ -n "$CHECKED_STR" ]]; then
+    echo
+    echo "  checked: $CHECKED_STR"
 fi
 
 # ...one line to the log, always.
